@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { maybeUploadAutoBackup } from './autoBackup';
 import { parseBackup, serializeBackup } from './backup';
 import {
   isBackupDue,
@@ -96,6 +97,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setState(loaded);
           setReady(true);
+          void maybeUploadAutoBackup(loaded);
         }
       })
       .catch((err: unknown) => {
@@ -108,6 +110,14 @@ export function GymProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const onOnline = () => {
+      if (state) void maybeUploadAutoBackup(state);
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [state]);
 
   const persist = useCallback(async (next: GymState) => {
     const normalized: GymState = {
@@ -407,12 +417,13 @@ export function GymProvider({ children }: { children: ReactNode }) {
   );
 
   const endSession = useCallback(async () => {
-    await update((current) => ({
+    const next = await update((current) => ({
       ...current,
       sessions: current.sessions.map((session) =>
         session.endedAt ? session : { ...session, endedAt: nowIso() },
       ),
     }));
+    void maybeUploadAutoBackup(next);
   }, [update]);
 
   const logSet = useCallback(

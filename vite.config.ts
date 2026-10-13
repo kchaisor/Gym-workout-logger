@@ -6,6 +6,9 @@ const base = '/Gym-workout-logger/';
 
 export default defineConfig({
   base,
+  test: {
+    environment: 'node',
+  },
   plugins: [
     react(),
     VitePWA({

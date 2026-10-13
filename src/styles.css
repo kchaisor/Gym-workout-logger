@@ -376,6 +376,24 @@ h3 {
   gap: 8px;
 }
 
+.stack-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.stack-label span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.subtle-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .swap-btn {
   flex-shrink: 0;
   min-height: 32px;
