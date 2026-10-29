@@ -154,6 +154,7 @@ assert(migrated.state.prefs.remindEnabled, 'prefs default on');
 assert(migrated.state.sessions[0].date === '2026-09-01', 'dates intact');
 assert(migrated.state.setEntries[0].weight === 100, 'sets intact');
 assert(migrated.state.exerciseNotes.length === 0, 'missing notes migrate to empty');
+assert(migrated.state.logDraft?.sessionId === null, 'missing logDraft migrates empty');
 
 const note: ExerciseNote = {
   sessionId: sessionOld.id,

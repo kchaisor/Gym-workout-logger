@@ -58,6 +58,22 @@ export type LastSessionGlance = {
   date: string;
 };
 
+export type RestTimerDraft = {
+  endsAtMs: number;
+  exerciseId: string;
+  exerciseName: string;
+  setNumber: number;
+  nextLabel: string;
+};
+
+/** Session UI state persisted locally; excluded from backup export. */
+export type LogDraft = {
+  sessionId: string | null;
+  stickyByExercise: Record<string, { weight: number; reps: number }>;
+  extraSetRows: Record<string, number>;
+  restTimer: RestTimerDraft | null;
+};
+
 export type BackupPrefs = {
   remindEnabled: boolean;
   everyDays: number;
@@ -89,4 +105,6 @@ export type GymState = {
   setEntries: SetEntry[];
   exerciseNotes: ExerciseNote[];
   prefs: BackupPrefs;
+  /** Local-only workout UI draft; not exported in backup JSON. */
+  logDraft?: LogDraft;
 };

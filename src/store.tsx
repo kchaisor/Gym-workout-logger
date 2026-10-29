@@ -20,13 +20,21 @@ import { loadState, saveState } from './db';
 import { upsertExerciseNote } from './exerciseNotes';
 import { heaviestMap } from './heaviest';
 import { createId, nowIso } from './ids';
-import { normalizeRestSeconds } from './restTimer';
+import {
+  addExtraSetRow,
+  emptyLogDraft,
+  logDraftForSession,
+  setStickyForExercise,
+} from './logDraft';
+import { extendRestTimer, restartRestTimer, startRestTimer } from './restTimerState';
+import { DEFAULT_REST_SECONDS, normalizeRestSeconds, type RestPreset } from './restTimer';
 import type {
   BackupPrefs,
   Category,
   GymState,
   HeaviestSet,
   ProgramExercise,
+  RestTimerDraft,
   Session,
   SetEntry,
 } from './types';
@@ -54,6 +62,14 @@ type GymStore = {
   logSet: (programExerciseId: string, weight: number, reps: number, date?: string) => Promise<void>;
   setExerciseNote: (programExerciseId: string, text: string, date?: string) => Promise<void>;
   removeSet: (id: string) => Promise<void>;
+  updateSet: (id: string, patch: { weight?: number; reps?: number }) => Promise<void>;
+  setStickyDraft: (
+    exerciseId: string,
+    patch: Partial<{ weight: number; reps: number }>,
+  ) => Promise<void>;
+  addDraftSetRow: (exerciseId: string) => Promise<void>;
+  setRestTimerDraft: (timer: RestTimerDraft | null) => Promise<void>;
+  bumpRestTimer: (presetSeconds: RestPreset | 'extend30') => Promise<void>;
   exportBackup: () => Promise<string>;
   importBackup: (raw: unknown) => Promise<void>;
   backupDue: boolean;
@@ -123,10 +139,19 @@ export function GymProvider({ children }: { children: ReactNode }) {
     const normalized: GymState = {
       ...next,
       exerciseNotes: next.exerciseNotes ?? [],
+      logDraft: next.logDraft ?? emptyLogDraft(),
     };
     setState(normalized);
     await saveState(normalized);
   }, []);
+
+  const syncLogDraftSession = useCallback(
+    (current: GymState, sessionId: string | null): GymState => ({
+      ...current,
+      logDraft: logDraftForSession(current.logDraft, sessionId),
+    }),
+    [],
+  );
 
   const update = useCallback(
     async (recipe: (current: GymState) => GymState) => {
@@ -158,6 +183,13 @@ export function GymProvider({ children }: { children: ReactNode }) {
       null
     );
   }, [state]);
+
+  useEffect(() => {
+    if (!state || !openSession) return;
+    const draft = state.logDraft ?? emptyLogDraft();
+    if (draft.sessionId === openSession.id) return;
+    void persist(syncLogDraftSession(state, openSession.id));
+  }, [openSession?.id, persist, state, syncLogDraftSession]);
 
   const setTitle = useCallback(
     async (title: string) => {
@@ -418,13 +450,14 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
   const endSession = useCallback(async () => {
     const next = await update((current) => ({
-      ...current,
+      ...syncLogDraftSession(current, null),
       sessions: current.sessions.map((session) =>
         session.endedAt ? session : { ...session, endedAt: nowIso() },
       ),
+      logDraft: emptyLogDraft(),
     }));
     void maybeUploadAutoBackup(next);
-  }, [update]);
+  }, [syncLogDraftSession, update]);
 
   const logSet = useCallback(
     async (programExerciseId: string, weight: number, reps: number, date?: string) => {
@@ -464,10 +497,29 @@ export function GymProvider({ children }: { children: ReactNode }) {
         sortOrder: siblings.reduce((max, set) => Math.max(max, set.sortOrder), -1) + 1,
         createdAt: nowIso(),
       };
+      const exercise = current.programExercises.find((ex) => ex.id === programExerciseId);
+      const preset = normalizeRestSeconds(current.prefs.restSeconds ?? DEFAULT_REST_SECONDS);
+      const loggedCount =
+        siblings.length +
+        1;
+      const nextDraft = setStickyForExercise(
+        logDraftForSession(current.logDraft, session.id),
+        programExerciseId,
+        { weight, reps },
+      );
+      const restMeta: Omit<RestTimerDraft, 'endsAtMs'> = {
+        exerciseId: programExerciseId,
+        exerciseName: exercise?.name ?? 'Lift',
+        setNumber: loggedCount,
+        nextLabel: `${weight} kg × ${reps}`,
+      };
+      const restTimer = startRestTimer(nextDraft.restTimer, preset, restMeta);
+
       await persist({
         ...current,
         sessions,
         setEntries: [...current.setEntries, entry],
+        logDraft: { ...nextDraft, restTimer },
       });
     },
     [persist, state],
@@ -479,6 +531,92 @@ export function GymProvider({ children }: { children: ReactNode }) {
         ...current,
         setEntries: current.setEntries.filter((set) => set.id !== id),
       }));
+    },
+    [update],
+  );
+
+  const updateSet = useCallback(
+    async (id: string, patch: { weight?: number; reps?: number }) => {
+      await update((current) => ({
+        ...current,
+        setEntries: current.setEntries.map((set) => {
+          if (set.id !== id) return set;
+          const weight = patch.weight ?? set.weight;
+          const reps = patch.reps ?? set.reps;
+          return { ...set, weight, reps };
+        }),
+      }));
+    },
+    [update],
+  );
+
+  const setStickyDraft = useCallback(
+    async (exerciseId: string, patch: Partial<{ weight: number; reps: number }>) => {
+      await update((current) => {
+        const sessionId =
+          [...current.sessions]
+            .reverse()
+            .find((s) => s.programId === current.program.id && !s.endedAt)?.id ?? null;
+        const base = logDraftForSession(current.logDraft, sessionId);
+        return {
+          ...current,
+          logDraft: setStickyForExercise(base, exerciseId, patch),
+        };
+      });
+    },
+    [update],
+  );
+
+  const addDraftSetRow = useCallback(
+    async (exerciseId: string) => {
+      await update((current) => {
+        const sessionId =
+          [...current.sessions]
+            .reverse()
+            .find((s) => s.programId === current.program.id && !s.endedAt)?.id ?? null;
+        const base = logDraftForSession(current.logDraft, sessionId);
+        return {
+          ...current,
+          logDraft: addExtraSetRow(base, exerciseId),
+        };
+      });
+    },
+    [update],
+  );
+
+  const setRestTimerDraft = useCallback(
+    async (timer: RestTimerDraft | null) => {
+      await update((current) => ({
+        ...current,
+        logDraft: {
+          ...(current.logDraft ?? emptyLogDraft()),
+          restTimer: timer,
+        },
+      }));
+    },
+    [update],
+  );
+
+  const bumpRestTimer = useCallback(
+    async (presetSeconds: RestPreset | 'extend30') => {
+      await update((current) => {
+        const draft = current.logDraft ?? emptyLogDraft();
+        const timer = draft.restTimer;
+        if (!timer) return current;
+        const nextTimer =
+          presetSeconds === 'extend30'
+            ? extendRestTimer(timer, 30)
+            : restartRestTimer(timer, presetSeconds);
+        const prefsPatch =
+          presetSeconds !== 'extend30' && presetSeconds !== current.prefs.restSeconds
+            ? { restSeconds: presetSeconds }
+            : {};
+        return {
+          ...current,
+          prefs: { ...current.prefs, ...prefsPatch },
+          logDraft: { ...draft, restTimer: nextTimer },
+        };
+      });
     },
     [update],
   );
@@ -532,7 +670,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
   const importBackup = useCallback(
     async (raw: unknown) => {
-      const next = parseBackup(raw);
+      const next = { ...parseBackup(raw), logDraft: emptyLogDraft() };
       await persist(next);
     },
     [persist],
@@ -595,6 +733,11 @@ export function GymProvider({ children }: { children: ReactNode }) {
       logSet,
       setExerciseNote,
       removeSet,
+      updateSet,
+      setStickyDraft,
+      addDraftSetRow,
+      setRestTimerDraft,
+      bumpRestTimer,
       exportBackup,
       importBackup,
       backupDue,
@@ -620,6 +763,11 @@ export function GymProvider({ children }: { children: ReactNode }) {
       removeCategory,
       removeExercise,
       removeSet,
+      updateSet,
+      setStickyDraft,
+      addDraftSetRow,
+      setRestTimerDraft,
+      bumpRestTimer,
       renameCategory,
       renameExercise,
       setBackupPrefs,
