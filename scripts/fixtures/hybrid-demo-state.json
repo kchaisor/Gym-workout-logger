@@ -1,0 +1,146 @@
+{
+  "program": {
+    "id": "demo-program",
+    "title": "Weekly lift",
+    "locked": true,
+    "updatedAt": "2026-10-29T08:00:00.000Z"
+  },
+  "categories": [
+    { "id": "cat-upper", "programId": "demo-program", "name": "Upper body", "sortOrder": 0 },
+    { "id": "cat-leg", "programId": "demo-program", "name": "Leg day", "sortOrder": 1 }
+  ],
+  "programExercises": [
+    { "id": "ex-bench", "categoryId": "cat-upper", "name": "Bench press", "sortOrder": 0 },
+    { "id": "ex-row", "categoryId": "cat-upper", "name": "Barbell row", "sortOrder": 1 },
+    { "id": "ex-ohp", "categoryId": "cat-upper", "name": "Overhead press", "sortOrder": 2 }
+  ],
+  "sessions": [
+    {
+      "id": "sess-last",
+      "programId": "demo-program",
+      "date": "2026-10-22",
+      "startedAt": "2026-10-22T09:00:00.000Z",
+      "endedAt": "2026-10-22T10:00:00.000Z"
+    },
+    {
+      "id": "sess-open",
+      "programId": "demo-program",
+      "date": "2026-10-29",
+      "startedAt": "2026-10-29T08:00:00.000Z"
+    }
+  ],
+  "setEntries": [
+    {
+      "id": "set-b1",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-bench",
+      "weight": 80,
+      "reps": 8,
+      "sortOrder": 0,
+      "createdAt": "2026-10-22T09:05:00.000Z"
+    },
+    {
+      "id": "set-b2",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-bench",
+      "weight": 80,
+      "reps": 8,
+      "sortOrder": 1,
+      "createdAt": "2026-10-22T09:08:00.000Z"
+    },
+    {
+      "id": "set-b3",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-bench",
+      "weight": 80,
+      "reps": 7,
+      "sortOrder": 2,
+      "createdAt": "2026-10-22T09:11:00.000Z"
+    },
+    {
+      "id": "set-b-pr",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-bench",
+      "weight": 85,
+      "reps": 5,
+      "sortOrder": 3,
+      "createdAt": "2026-10-22T09:20:00.000Z"
+    },
+    {
+      "id": "set-open-1",
+      "sessionId": "sess-open",
+      "programExerciseId": "ex-bench",
+      "weight": 80,
+      "reps": 8,
+      "sortOrder": 0,
+      "createdAt": "2026-10-29T08:10:00.000Z"
+    },
+    {
+      "id": "set-open-2",
+      "sessionId": "sess-open",
+      "programExerciseId": "ex-bench",
+      "weight": 80,
+      "reps": 8,
+      "sortOrder": 1,
+      "createdAt": "2026-10-29T08:14:00.000Z"
+    },
+    {
+      "id": "set-row-last",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-row",
+      "weight": 70,
+      "reps": 8,
+      "sortOrder": 0,
+      "createdAt": "2026-10-22T09:25:00.000Z"
+    },
+    {
+      "id": "set-row-last-2",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-row",
+      "weight": 70,
+      "reps": 8,
+      "sortOrder": 1,
+      "createdAt": "2026-10-22T09:28:00.000Z"
+    },
+    {
+      "id": "set-row-last-3",
+      "sessionId": "sess-last",
+      "programExerciseId": "ex-row",
+      "weight": 70,
+      "reps": 8,
+      "sortOrder": 2,
+      "createdAt": "2026-10-22T09:31:00.000Z"
+    }
+  ],
+  "exerciseNotes": [
+    {
+      "sessionId": "sess-open",
+      "programExerciseId": "ex-bench",
+      "text": "Pause 1s on chest, tuck elbows"
+    }
+  ],
+  "prefs": {
+    "remindEnabled": true,
+    "everyDays": 7,
+    "afterSessions": 4,
+    "lastExportedAt": null,
+    "lastResetAt": "2026-10-01T00:00:00.000Z",
+    "sessionCountAtReset": 0,
+    "restSeconds": 180
+  },
+  "logDraft": {
+    "sessionId": "sess-open",
+    "stickyByExercise": {
+      "ex-bench": { "weight": 80, "reps": 8 },
+      "ex-row": { "weight": 72.5, "reps": 8 }
+    },
+    "extraSetRows": {},
+    "restTimer": {
+      "endsAtMs": 9999999999999,
+      "exerciseId": "ex-bench",
+      "exerciseName": "Bench press",
+      "setNumber": 2,
+      "nextLabel": "80 kg × 8"
+    }
+  }
+}

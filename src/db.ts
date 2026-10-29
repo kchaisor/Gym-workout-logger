@@ -2,17 +2,26 @@ import { loggedSessionCount, normalizeBackupPrefs } from './backupPrefs';
 import { withCalendarDate } from './dates';
 import { normalizeExerciseNotes } from './exerciseNotes';
 import { seedGymState } from './seed';
-import type { BackupPrefs, GymState, ProgramExercise, Session } from './types';
+import { emptyLogDraft } from './logDraft';
+import type {
+  BackupPrefs,
+  GymState,
+  LogDraft,
+  ProgramExercise,
+  RestTimerDraft,
+  Session,
+} from './types';
 
 const DB_NAME = 'gym-workout-logger';
 /** Single kv blob — do not bump; migrate fields in migrateState instead of wiping. */
 const DB_VERSION = 1;
 const STATE_KEY = 'state';
 
-type StoredState = Omit<GymState, 'sessions' | 'prefs' | 'exerciseNotes'> & {
+type StoredState = Omit<GymState, 'sessions' | 'prefs' | 'exerciseNotes' | 'logDraft'> & {
   sessions: Array<Session & { date?: string }>;
   prefs?: BackupPrefs | unknown;
   exerciseNotes?: unknown;
+  logDraft?: unknown;
 };
 
 export function migrateState(stored: StoredState): { state: GymState; changed: boolean } {
@@ -32,6 +41,9 @@ export function migrateState(stored: StoredState): { state: GymState; changed: b
   const prefs = normalizeBackupPrefs(stored.prefs, sessionCount);
   if (JSON.stringify(stored.prefs ?? null) !== JSON.stringify(prefs)) changed = true;
 
+  const logDraft = normalizeLogDraft(stored.logDraft);
+  if (stored.logDraft === undefined) changed = true;
+
   return {
     state: {
       program: stored.program,
@@ -41,10 +53,34 @@ export function migrateState(stored: StoredState): { state: GymState; changed: b
       setEntries,
       exerciseNotes,
       prefs,
+      logDraft,
     },
     changed,
   };
 }
+
+function normalizeLogDraft(raw: unknown): LogDraft {
+  if (typeof raw !== 'object' || raw === null) return emptyLogDraft();
+  const draft = raw as Partial<LogDraft>;
+  return {
+    sessionId: typeof draft.sessionId === 'string' ? draft.sessionId : null,
+    stickyByExercise:
+      typeof draft.stickyByExercise === 'object' && draft.stickyByExercise !== null
+        ? (draft.stickyByExercise as LogDraft['stickyByExercise'])
+        : {},
+    extraSetRows:
+      typeof draft.extraSetRows === 'object' && draft.extraSetRows !== null
+        ? (draft.extraSetRows as LogDraft['extraSetRows'])
+        : {},
+    restTimer:
+      draft.restTimer &&
+      typeof draft.restTimer === 'object' &&
+      typeof (draft.restTimer as RestTimerDraft).endsAtMs === 'number'
+        ? (draft.restTimer as RestTimerDraft)
+        : null,
+  };
+}
+
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

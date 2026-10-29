@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { HistoryScreen } from './HistoryScreen';
 import { LogScreen } from './LogScreen';
 import { ProgramScreen } from './ProgramScreen';
+import { RestTimerDock } from './RestTimerDock';
 import { SettingsScreen } from './SettingsScreen';
+import { DEFAULT_REST_SECONDS, normalizeRestSeconds } from './restTimer';
 import { useGym } from './store';
 
 type Tab = 'log' | 'history' | 'program' | 'settings';
@@ -30,22 +32,27 @@ export function App() {
 }
 
 function LoadedApp() {
-  const { state, backupDue, dismissBackupNudge } = useGym();
+  const { state, backupDue, dismissBackupNudge, bumpRestTimer, setRestTimerDraft } = useGym();
   const [tab, setTab] = useState<Tab>(state?.program.locked ? 'log' : 'program');
 
   if (!state) return null;
 
+  const restTimer = state.logDraft?.restTimer ?? null;
+  const restPreset = normalizeRestSeconds(state.prefs.restSeconds ?? DEFAULT_REST_SECONDS);
+
   return (
-    <div className="shell">
-      <header className="app-bar">
-        <div>
-          <p className="brand">Gym Log</p>
-          <p className="heaviest">{state.program.title}</p>
-        </div>
-        <span className={state.program.locked ? 'lock-pill on' : 'lock-pill'}>
-          {state.program.locked ? 'Locked' : 'Unlocked'}
-        </span>
-      </header>
+    <div className={`shell${restTimer ? ' has-rest-dock' : ''}`}>
+      {tab !== 'log' && (
+        <header className="app-bar">
+          <div>
+            <p className="brand">Gym Log</p>
+            <p className="heaviest">{state.program.title}</p>
+          </div>
+          <span className={state.program.locked ? 'lock-pill on' : 'lock-pill'}>
+            {state.program.locked ? 'Locked' : 'Unlocked'}
+          </span>
+        </header>
+      )}
 
       {backupDue && (
         <div className="banner nudge">
@@ -80,6 +87,16 @@ function LoadedApp() {
         {tab === 'program' && <ProgramScreen />}
         {tab === 'settings' && <SettingsScreen />}
       </main>
+
+      {restTimer && (
+        <RestTimerDock
+          timer={restTimer}
+          activePreset={restPreset}
+          onPreset={(seconds) => void bumpRestTimer(seconds)}
+          onExtend30={() => void bumpRestTimer('extend30')}
+          onDismiss={() => void setRestTimerDraft(null)}
+        />
+      )}
 
       <nav className="tab-bar" aria-label="Primary">
         <button
