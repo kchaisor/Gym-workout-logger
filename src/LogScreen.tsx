@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDateKey, formatDateKeyCompact, isDateKey, todayLocalDateKey } from './dates';
 import { noteText } from './exerciseNotes';
 import {
+  currentRowDraftValues,
+  stepStickyReps,
+  stepStickyWeight,
+} from './logControls';
+import {
   defaultRowValues,
   emptyLogDraft,
   rowCountForExercise,
@@ -51,7 +56,7 @@ function LogExerciseCard({
   sticky: { weight: number; reps: number };
   rowCount: number;
   editingSetId: string | null;
-  onEditSet: (id: string | null) => void;
+  onEditSet: (id: string) => void;
   onCloseEdit: () => void;
   onLog: (weight: number, reps: number) => Promise<void>;
   onRemoveSet: (id: string) => Promise<void>;
@@ -69,11 +74,16 @@ function LogExerciseCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const focusedNote = useRef(false);
+  const [draftSticky, setDraftSticky] = useState(sticky);
 
   useEffect(() => {
     if (!focusedNote.current) setDraftNote(note);
     if (note.trim()) setNoteOpen(true);
   }, [note]);
+
+  useEffect(() => {
+    setDraftSticky(sticky);
+  }, [sticky.weight, sticky.reps]);
 
   const currentRowIndex = sessionSets.length;
   const activeExercise = currentRowIndex < rowCount;
@@ -96,12 +106,15 @@ function LogExerciseCard({
   }
 
   function stepWeight(delta: number) {
-    const next = Math.max(0, Math.round((sticky.weight + delta) * 2) / 2);
-    onStickyChange({ weight: next });
+    const weight = stepStickyWeight(draftSticky.weight, delta);
+    setDraftSticky((prev) => ({ ...prev, weight }));
+    onStickyChange({ weight });
   }
 
   function stepReps(delta: number) {
-    onStickyChange({ reps: Math.max(0, sticky.reps + delta) });
+    const reps = stepStickyReps(draftSticky.reps, delta);
+    setDraftSticky((prev) => ({ ...prev, reps }));
+    onStickyChange({ reps });
   }
 
   const lastHeader = lastSnapshot
@@ -177,7 +190,9 @@ function LogExerciseCard({
           const logged = sessionSets[rowIndex] ?? null;
           const isDone = Boolean(logged);
           const isCurrent = !isDone && rowIndex === currentRowIndex;
-          const rowVals = defaultRowValues(rowIndex, lastSets, sticky);
+          const rowVals = isCurrent
+            ? currentRowDraftValues(rowIndex, lastSets, draftSticky)
+            : defaultRowValues(rowIndex, lastSets, draftSticky);
           const displayWeight = isDone ? logged!.weight : rowVals.weight;
           const displayReps = isDone ? logged!.reps : rowVals.reps;
           const lastCol = rowVals.lastLabel ?? '—';
@@ -318,7 +333,9 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
   const [draftDate, setDraftDate] = useState(todayLocalDateKey);
   const [actionError, setActionError] = useState<string | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
-  const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const [editingSet, setEditingSet] = useState<{ exerciseId: string; setId: string } | null>(
+    null,
+  );
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [, tick] = useState(0);
 
@@ -497,9 +514,11 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
                 lastSets.length,
                 sets.length,
               )}
-              editingSetId={editingSetId}
-              onEditSet={setEditingSetId}
-              onCloseEdit={() => setEditingSetId(null)}
+              editingSetId={
+                editingSet?.exerciseId === exercise.id ? editingSet.setId : null
+              }
+              onEditSet={(setId) => setEditingSet({ exerciseId: exercise.id, setId })}
+              onCloseEdit={() => setEditingSet(null)}
               onLog={(weight, reps) => logSet(exercise.id, weight, reps, selectedDate)}
               onRemoveSet={removeSet}
               onUpdateSet={updateSet}
