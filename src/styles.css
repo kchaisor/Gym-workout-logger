@@ -9,6 +9,7 @@
   --lime: #c8f542;
   --lime-dim: #9cc232;
   --danger: #ff7a70;
+  --set-done-fill: #282e25;
   --radius: 14px;
   font-family:
     ui-rounded,
@@ -882,19 +883,25 @@ input:focus {
   overflow: hidden;
   border-radius: 8px;
   touch-action: pan-y;
+  background: var(--set-done-fill);
 }
 
 .set-swipe-actions {
   position: absolute;
-  inset: 0 0 0 auto;
-  width: 76px;
+  inset: 0;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
+  pointer-events: none;
+}
+
+.set-swipe-row.is-revealed .set-swipe-actions {
+  pointer-events: auto;
 }
 
 .set-swipe-delete {
-  flex: 1;
+  width: 76px;
+  flex-shrink: 0;
   border: 0;
   border-radius: 0 8px 8px 0;
   background: #dc2626;
@@ -907,9 +914,16 @@ input:focus {
 
 .set-swipe-content {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  width: 100%;
   will-change: transform;
-  background: rgba(200, 245, 66, 0.08);
+  background: var(--set-done-fill);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--set-done-fill);
+}
+
+.set-swipe-content .set-val {
+  background: var(--set-done-fill);
 }
 
 .set-trow.done {

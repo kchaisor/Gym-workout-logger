@@ -44,6 +44,7 @@ export function SetSwipeRow({
 
   const settledOffset = isOpen ? revealWidth : 0;
   const displayOffset = dragOffset ?? settledOffset;
+  const showDeleteAction = displayOffset > 0;
 
   const measureRowWidth = useCallback(() => {
     return wrapRef.current?.clientWidth ?? 0;
@@ -134,31 +135,34 @@ export function SetSwipeRow({
   return (
     <div
       ref={wrapRef}
-      className="set-swipe-row"
+      className={showDeleteAction ? 'set-swipe-row is-revealed' : 'set-swipe-row'}
       data-set-id={setId}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <div className="set-swipe-actions" aria-hidden={displayOffset <= 0}>
-        <button
-          type="button"
-          className="set-swipe-delete"
-          aria-label="Delete set"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClose();
-            onDelete();
-          }}
-        >
-          Delete
-        </button>
-      </div>
+      {showDeleteAction && (
+        <div className="set-swipe-actions">
+          <button
+            type="button"
+            className="set-swipe-delete"
+            aria-label="Delete set"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+              onDelete();
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
       <div
         className="set-swipe-content set-trow done"
         style={{
-          transform: displayOffset > 0 ? `translate3d(${-displayOffset}px, 0, 0)` : undefined,
+          transform:
+            displayOffset > 0 ? `translate3d(${-displayOffset}px, 0, 0)` : undefined,
         }}
       >
         {children}
