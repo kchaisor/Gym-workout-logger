@@ -877,6 +877,41 @@ input:focus {
   border-radius: 8px;
 }
 
+.set-swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  touch-action: pan-y;
+}
+
+.set-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 76px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.set-swipe-delete {
+  flex: 1;
+  border: 0;
+  border-radius: 0 8px 8px 0;
+  background: #dc2626;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0 8px;
+}
+
+.set-swipe-content {
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+  background: rgba(200, 245, 66, 0.08);
+}
+
 .set-trow.done {
   background: rgba(200, 245, 66, 0.08);
 }
@@ -1101,4 +1136,42 @@ input:focus {
 
 .rest-dock-pill.dismiss {
   padding: 3px 8px;
+}
+
+.undo-toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(62px + env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #232832;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.undo-toast.has-rest-dock {
+  bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
+.undo-toast-msg {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.undo-toast-btn {
+  border: 0;
+  background: transparent;
+  color: var(--lime);
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 44px;
+  padding: 0 8px;
 }

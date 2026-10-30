@@ -19,6 +19,8 @@ import {
   progressionBadge,
 } from './progression';
 import { exercisesFor, sortedCategories, useGym } from './store';
+import { SetSwipeRow } from './SetSwipeRow';
+import { UndoToast } from './UndoToast';
 import type { ProgramExercise, SetEntry } from './types';
 
 function sessionMinutes(startedAt: string): number {
@@ -39,8 +41,11 @@ function LogExerciseCard({
   onEditSet,
   onCloseEdit,
   onLog,
-  onRemoveSet,
+  onDeleteSetWithUndo,
   onUpdateSet,
+  openSwipeSetId,
+  onOpenSwipeSet,
+  onCloseSwipeSet,
   onSaveNote,
   onStickyChange,
   onAddRow,
@@ -59,8 +64,11 @@ function LogExerciseCard({
   onEditSet: (id: string) => void;
   onCloseEdit: () => void;
   onLog: (weight: number, reps: number) => Promise<void>;
-  onRemoveSet: (id: string) => Promise<void>;
+  onDeleteSetWithUndo: (entry: SetEntry) => Promise<void>;
   onUpdateSet: (id: string, patch: { weight?: number; reps?: number }) => Promise<void>;
+  openSwipeSetId: string | null;
+  onOpenSwipeSet: (id: string) => void;
+  onCloseSwipeSet: () => void;
   onSaveNote: (text: string) => Promise<void>;
   onStickyChange: (patch: Partial<{ weight: number; reps: number }>) => void;
   onAddRow: () => void;
@@ -236,7 +244,7 @@ function LogExerciseCard({
                     type="button"
                     className="btn danger set-edit-btn"
                     onClick={() => {
-                      void onRemoveSet(logged!.id).then(() => onCloseEdit());
+                      void onDeleteSetWithUndo(logged!).then(() => onCloseEdit());
                     }}
                   >
                     Delete
@@ -246,16 +254,21 @@ function LogExerciseCard({
             );
           }
 
-          return (
-            <div
-              key={logged?.id ?? `row-${rowIndex}`}
-              className={`set-trow${isDone ? ' done' : ''}${isCurrent ? ' current' : ''}`}
-            >
-              <span className={`set-num${isCurrent ? ' active' : ''}`}>{rowIndex + 1}</span>
-              <span className="set-last">{lastCol}</span>
-              <span className="set-val">{displayWeight}</span>
-              <span className="set-val">{displayReps}</span>
-              {isDone ? (
+          if (isDone) {
+            return (
+              <SetSwipeRow
+                key={logged!.id}
+                setId={logged!.id}
+                enabled={locked && !busy}
+                isOpen={openSwipeSetId === logged!.id}
+                onOpen={() => onOpenSwipeSet(logged!.id)}
+                onClose={onCloseSwipeSet}
+                onDelete={() => void onDeleteSetWithUndo(logged!)}
+              >
+                <span className="set-num">{rowIndex + 1}</span>
+                <span className="set-last">{lastCol}</span>
+                <span className="set-val">{displayWeight}</span>
+                <span className="set-val">{displayReps}</span>
                 <button
                   type="button"
                   className="set-chk on"
@@ -264,17 +277,28 @@ function LogExerciseCard({
                 >
                   ✓
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className={isCurrent ? 'set-chk ready' : 'set-chk idle'}
-                  disabled={!locked || busy || !isCurrent}
-                  aria-label={`Log set ${rowIndex + 1}`}
-                  onClick={() => void logRow(displayWeight, displayReps)}
-                >
-                  ✓
-                </button>
-              )}
+              </SetSwipeRow>
+            );
+          }
+
+          return (
+            <div
+              key={`row-${rowIndex}`}
+              className={`set-trow${isCurrent ? ' current' : ''}`}
+            >
+              <span className={`set-num${isCurrent ? ' active' : ''}`}>{rowIndex + 1}</span>
+              <span className="set-last">{lastCol}</span>
+              <span className="set-val">{displayWeight}</span>
+              <span className="set-val">{displayReps}</span>
+              <button
+                type="button"
+                className={isCurrent ? 'set-chk ready' : 'set-chk idle'}
+                disabled={!locked || busy || !isCurrent}
+                aria-label={`Log set ${rowIndex + 1}`}
+                onClick={() => void logRow(displayWeight, displayReps)}
+              >
+                ✓
+              </button>
             </div>
           );
         })}
@@ -324,6 +348,7 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
     endSession,
     logSet,
     removeSet,
+    restoreSet,
     updateSet,
     setExerciseNote,
     setStickyDraft,
@@ -336,6 +361,8 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; setId: string } | null>(
     null,
   );
+  const [openSwipeSetId, setOpenSwipeSetId] = useState<string | null>(null);
+  const [undoEntry, setUndoEntry] = useState<SetEntry | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [, tick] = useState(0);
 
@@ -348,6 +375,23 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
   useEffect(() => {
     if (dateOpen) dateInputRef.current?.showPicker?.();
   }, [dateOpen]);
+
+  useEffect(() => {
+    function onDocumentPointerDown(event: PointerEvent) {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest('.set-swipe-row, .undo-toast')) return;
+      setOpenSwipeSetId(null);
+    }
+    document.addEventListener('pointerdown', onDocumentPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+  }, []);
+
+  async function deleteSetWithUndo(entry: SetEntry) {
+    setOpenSwipeSetId(null);
+    if (editingSet?.setId === entry.id) setEditingSet(null);
+    await removeSet(entry.id);
+    setUndoEntry(entry);
+  }
 
   const categories = state ? sortedCategories(state) : [];
   const activeId = categoryId && categories.some((cat) => cat.id === categoryId)
@@ -520,8 +564,11 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
               onEditSet={(setId) => setEditingSet({ exerciseId: exercise.id, setId })}
               onCloseEdit={() => setEditingSet(null)}
               onLog={(weight, reps) => logSet(exercise.id, weight, reps, selectedDate)}
-              onRemoveSet={removeSet}
+              onDeleteSetWithUndo={deleteSetWithUndo}
               onUpdateSet={updateSet}
+              openSwipeSetId={openSwipeSetId}
+              onOpenSwipeSet={(setId) => setOpenSwipeSetId(setId)}
+              onCloseSwipeSet={() => setOpenSwipeSetId(null)}
               onSaveNote={(text) => setExerciseNote(exercise.id, text, selectedDate)}
               onStickyChange={(patch) => void setStickyDraft(exercise.id, patch)}
               onAddRow={() => void addDraftSetRow(exercise.id)}
@@ -533,6 +580,19 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
         })}
         {exercises.length === 0 && locked && <p className="muted">No exercises on this day.</p>}
       </div>
+
+      {undoEntry && (
+        <UndoToast
+          message="Set deleted"
+          hasRestDock={Boolean(state.logDraft?.restTimer)}
+          onUndo={() => {
+            const entry = undoEntry;
+            setUndoEntry(null);
+            void restoreSet(entry);
+          }}
+          onDismiss={() => setUndoEntry(null)}
+        />
+      )}
     </section>
   );
 }
