@@ -5,7 +5,23 @@ import { App } from './App';
 import { GymProvider } from './store';
 import './styles.css';
 
-registerSW({ immediate: true });
+let swRefreshing = false;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRefreshing) return;
+    swRefreshing = true;
+    window.location.reload();
+  });
+}
+
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    if (window.confirm('Gym Log update ready. Reload now?')) {
+      void updateSW(true);
+    }
+  },
+});
 
 const root = document.getElementById('root');
 if (!root) {

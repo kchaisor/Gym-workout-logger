@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { removeSetEntry } from './logControls';
 import { maybeUploadAutoBackup } from './autoBackup';
 import { parseBackup, serializeBackup } from './backup';
 import {
@@ -105,12 +107,18 @@ export function GymProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<GymState | null>(null);
+  const stateRef = useRef<GymState | null>(null);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     let cancelled = false;
     loadState()
       .then((loaded) => {
         if (!cancelled) {
+          stateRef.current = loaded;
           setState(loaded);
           setReady(true);
           void maybeUploadAutoBackup(loaded);
@@ -141,6 +149,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       exerciseNotes: next.exerciseNotes ?? [],
       logDraft: next.logDraft ?? emptyLogDraft(),
     };
+    stateRef.current = normalized;
     setState(normalized);
     await saveState(normalized);
   }, []);
@@ -155,13 +164,13 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback(
     async (recipe: (current: GymState) => GymState) => {
-      const current = state;
+      const current = stateRef.current;
       if (!current) throw new Error('Not ready');
       const next = recipe(current);
       await persist(next);
       return next;
     },
-    [persist, state],
+    [persist],
   );
 
   const heaviest = useMemo(
@@ -529,7 +538,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       await update((current) => ({
         ...current,
-        setEntries: current.setEntries.filter((set) => set.id !== id),
+        setEntries: removeSetEntry(current.setEntries, id),
       }));
     },
     [update],
