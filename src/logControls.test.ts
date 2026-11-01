@@ -3,6 +3,7 @@ import {
   clearSetEdit,
   currentRowDraftValues,
   removeSetEntry,
+  restoreSetEntry,
   stepStickyReps,
   stepStickyWeight,
 } from './logControls';
@@ -55,6 +56,48 @@ describe('currentRowDraftValues', () => {
 describe('clearSetEdit (undo)', () => {
   it('returns null so edit mode closes without deleting', () => {
     expect(clearSetEdit()).toBeNull();
+  });
+});
+
+describe('restoreSetEntry (delete undo)', () => {
+  it('restores id, order, weight, reps and timestamp', () => {
+    const removed: SetEntry = {
+      id: 'drop',
+      sessionId: 's',
+      programExerciseId: 'ex',
+      weight: 82.5,
+      reps: 6,
+      sortOrder: 1,
+      createdAt: '2026-01-02T00:00:00.000Z',
+    };
+    const entries: SetEntry[] = [
+      {
+        id: 'keep',
+        sessionId: 's',
+        programExerciseId: 'ex',
+        weight: 60,
+        reps: 5,
+        sortOrder: 0,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    const restored = restoreSetEntry(entries, removed);
+    expect(restored).toHaveLength(2);
+    expect(restored.map((e) => e.id)).toEqual(['keep', 'drop']);
+    expect(restored[1]).toEqual(removed);
+  });
+
+  it('does not duplicate an existing id', () => {
+    const entry: SetEntry = {
+      id: 'keep',
+      sessionId: 's',
+      programExerciseId: 'ex',
+      weight: 60,
+      reps: 5,
+      sortOrder: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    expect(restoreSetEntry([entry], entry)).toEqual([entry]);
   });
 });
 

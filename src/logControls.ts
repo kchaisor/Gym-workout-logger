@@ -26,6 +26,13 @@ export function removeSetEntry(entries: SetEntry[], id: string): SetEntry[] {
   return entries.filter((set) => set.id !== id);
 }
 
+export function restoreSetEntry(entries: SetEntry[], entry: SetEntry): SetEntry[] {
+  if (entries.some((set) => set.id === entry.id)) return entries;
+  return [...entries, entry].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt),
+  );
+}
+
 /** Undo closes inline edit without mutating logged sets. */
 export function clearSetEdit(): null {
   return null;

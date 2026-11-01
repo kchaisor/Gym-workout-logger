@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { removeSetEntry } from './logControls';
+import { removeSetEntry, restoreSetEntry } from './logControls';
 import { maybeUploadAutoBackup } from './autoBackup';
 import { parseBackup, serializeBackup } from './backup';
 import {
@@ -64,6 +64,7 @@ type GymStore = {
   logSet: (programExerciseId: string, weight: number, reps: number, date?: string) => Promise<void>;
   setExerciseNote: (programExerciseId: string, text: string, date?: string) => Promise<void>;
   removeSet: (id: string) => Promise<void>;
+  restoreSet: (entry: SetEntry) => Promise<void>;
   updateSet: (id: string, patch: { weight?: number; reps?: number }) => Promise<void>;
   setStickyDraft: (
     exerciseId: string,
@@ -544,6 +545,16 @@ export function GymProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const restoreSet = useCallback(
+    async (entry: SetEntry) => {
+      await update((current) => ({
+        ...current,
+        setEntries: restoreSetEntry(current.setEntries, entry),
+      }));
+    },
+    [update],
+  );
+
   const updateSet = useCallback(
     async (id: string, patch: { weight?: number; reps?: number }) => {
       await update((current) => ({
@@ -742,6 +753,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       logSet,
       setExerciseNote,
       removeSet,
+      restoreSet,
       updateSet,
       setStickyDraft,
       addDraftSetRow,
@@ -772,6 +784,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       removeCategory,
       removeExercise,
       removeSet,
+      restoreSet,
       updateSet,
       setStickyDraft,
       addDraftSetRow,
